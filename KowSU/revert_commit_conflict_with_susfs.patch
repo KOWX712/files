@@ -1,0 +1,933 @@
+From b511628f5448480641c41e11ae4314f230c6f043 Mon Sep 17 00:00:00 2001
+From: KOWX712 <leecc0503@gmail.com>
+Date: Wed, 15 Oct 2025 17:45:10 +0800
+Subject: [PATCH 1/8] Revert "ksud: add cmd for add-try-umount (5ec1cff#16)"
+
+This reverts commit a8c5f94e7ab09cd09d5db9c6c4a4cfc793197129
+
+Signed-off-by: KOWX712 <leecc0503@gmail.com>
+---
+ userspace/ksud/src/cli.rs | 23 -----------------------
+ 1 file changed, 23 deletions(-)
+
+diff --git a/userspace/ksud/src/cli.rs b/userspace/ksud/src/cli.rs
+index aba77698..be804a0e 100644
+--- a/userspace/ksud/src/cli.rs
++++ b/userspace/ksud/src/cli.rs
+@@ -10,8 +10,6 @@ use log::LevelFilter;
+ use crate::defs::KSUD_VERBOSE_LOG_FILE;
+ use crate::{apk_sign, assets, debug, defs, init_event, ksucalls, module, utils};
+ 
+-use std::ffi::CString;
+-
+ /// KernelSU userspace cli
+ #[derive(Parser, Debug)]
+ #[command(author, version = defs::VERSION_NAME, about, long_about = None)]
+@@ -31,11 +29,6 @@ enum Commands {
+         command: Module,
+     },
+ 
+-    /// Add custom try umount path
+-    AddTryUmount {  
+-        path: PathBuf,  
+-    },
+-
+     /// Nuke custom ext4 sysfs path
+     NukeExt4Sysfs {
+         path: PathBuf,
+@@ -328,22 +321,6 @@ pub fn run() -> Result<()> {
+                 Module::List => module::list_modules(),
+             }
+         }
+-	Commands::AddTryUmount { path } => {  
+-	    match CString::new(path.to_string_lossy().as_ref()) {  
+-		std::result::Result::Ok(c_path) => {  
+-		    let mut dummy: u32 = 0;  
+-		    unsafe {  
+-		        libc::prctl(0xDEADBEEFu32 as i32, 10001, c_path.as_ptr() as libc::c_ulong,   
+-		                   &mut dummy as *mut u32 as libc::c_ulong,   
+-		                   &mut dummy as *mut u32 as libc::c_ulong);  
+-		    }  
+-		}  
+-		std::result::Result::Err(e) => {  
+-		    eprintln!("Failed to create CString: {}", e);  
+-		}  
+-	    }  
+-	    Ok(())  
+-	}
+ 	Commands::NukeExt4Sysfs { path } => {  
+ 	    match CString::new(path.to_string_lossy().as_ref()) {  
+ 		std::result::Result::Ok(c_path) => {  
+-- 
+2.51.0
+
+
+From a91b21ed1eb5ca63ff8174292e800c7541db3f29 Mon Sep 17 00:00:00 2001
+From: KOWX712 <leecc0503@gmail.com>
+Date: Wed, 15 Oct 2025 17:46:19 +0800
+Subject: [PATCH 2/8] Revert "kernel: core_hook: add support for KernelNoSU v2"
+
+This reverts commit 51e5d782e7f68d03d9360842c29d8aa33597579f.
+
+Signed-off-by: KOWX712 <leecc0503@gmail.com>
+---
+ kernel/core_hook.c | 75 ++++++++++++++++++++++++----------------------
+ 1 file changed, 39 insertions(+), 36 deletions(-)
+
+diff --git a/kernel/core_hook.c b/kernel/core_hook.c
+index b67ff1b8..2cc051f7 100644
+--- a/kernel/core_hook.c
++++ b/kernel/core_hook.c
+@@ -286,42 +286,6 @@ skip_check:
+ 	if (KERNEL_SU_OPTION != option)
+ 		return 0;
+ 
+-#ifdef CONFIG_KSU_DEBUG
+-	pr_info("option: 0x%x, cmd: %ld\n", option, arg2);
+-#endif
+-
+-	if (arg2 == CMD_GRANT_ROOT) {
+-		pr_info("allow root for: %d\n", current_uid().val);
+-		escape_to_root();
+-		if (copy_to_user(result, &reply_ok, sizeof(reply_ok))) {
+-			pr_err("grant_root: prctl reply error\n");
+-		}
+-		return 0;
+-	}
+-
+-	if (arg2 == CMD_ENABLE_SU) {
+-		bool enabled = (arg3 != 0);
+-		if (enabled == ksu_su_compat_enabled) {
+-			pr_info("cmd enable su but no need to change.\n");
+-			if (copy_to_user(result, &reply_ok, sizeof(reply_ok))) {// return the reply_ok directly
+-				pr_err("prctl reply error, cmd: %lu\n", arg2);
+-			}
+-			return 0;
+-		}
+-
+-		if (enabled) {
+-			ksu_sucompat_init();
+-		} else {
+-			ksu_sucompat_exit();
+-		}
+-		ksu_su_compat_enabled = enabled;
+-
+-		if (copy_to_user(result, &reply_ok, sizeof(reply_ok))) {
+-			pr_err("prctl reply error, cmd: %lu\n", arg2);
+-		}
+-		return 0;
+-	}
+-
+ 	// just continue old logic
+ 	bool from_root = !current_uid().val;
+ 	bool from_manager = is_manager();
+@@ -331,6 +295,10 @@ skip_check:
+ 		return 0;
+ 	}
+ 
++#ifdef CONFIG_KSU_DEBUG
++	pr_info("option: 0x%x, cmd: %ld\n", option, arg2);
++#endif
++
+ 	if (arg2 == CMD_ADD_TRY_UMOUNT) {
+ 		struct mount_entry *new_entry, *entry;
+ 		char buf[384];
+@@ -400,6 +368,17 @@ skip_check:
+ 		return 0;
+ 	}
+ 
++	if (arg2 == CMD_GRANT_ROOT) {
++		if (is_allow_su()) {
++			pr_info("allow root for: %d\n", current_uid().val);
++			escape_to_root();
++			if (copy_to_user(result, &reply_ok, sizeof(reply_ok))) {
++				pr_err("grant_root: prctl reply error\n");
++			}
++		}
++		return 0;
++	}
++
+ 	// Both root manager and root processes should be allowed to get version
+ 	if (arg2 == CMD_GET_VERSION) {
+ 		u32 version = KERNEL_SU_VERSION;
+@@ -581,6 +560,30 @@ skip_check:
+ 		return 0;
+ 	}
+ 
++	if (arg2 == CMD_ENABLE_SU) {
++		bool enabled = (arg3 != 0);
++		if (enabled == ksu_su_compat_enabled) {
++			pr_info("cmd enable su but no need to change.\n");
++			if (copy_to_user(result, &reply_ok, sizeof(reply_ok))) {// return the reply_ok directly
++				pr_err("prctl reply error, cmd: %lu\n", arg2);
++			}
++			return 0;
++		}
++
++		if (enabled) {
++			ksu_sucompat_init();
++		} else {
++			ksu_sucompat_exit();
++		}
++		ksu_su_compat_enabled = enabled;
++
++		if (copy_to_user(result, &reply_ok, sizeof(reply_ok))) {
++			pr_err("prctl reply error, cmd: %lu\n", arg2);
++		}
++
++		return 0;
++	}
++
+ 	return 0;
+ }
+ 
+-- 
+2.51.0
+
+
+From d499931ec0392452d0f1f037480d468771993ff1 Mon Sep 17 00:00:00 2001
+From: KOWX712 <leecc0503@gmail.com>
+Date: Wed, 15 Oct 2025 17:48:29 +0800
+Subject: [PATCH 3/8] Revert "kernel: harden barriers for arm/arm64"
+
+This reverts commit 8a22bbdbe3d8579980af58bf060630fbfb18603b.
+
+Signed-off-by: KOWX712 <leecc0503@gmail.com>
+---
+ kernel/core_hook.c     | 2 +-
+ kernel/kernel_compat.h | 8 --------
+ kernel/sucompat.c      | 2 +-
+ 3 files changed, 2 insertions(+), 10 deletions(-)
+
+diff --git a/kernel/core_hook.c b/kernel/core_hook.c
+index 2cc051f7..080b17d8 100644
+--- a/kernel/core_hook.c
++++ b/kernel/core_hook.c
+@@ -277,7 +277,7 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+ skip_check:
+ 	// yes this causes delay, but this keeps the delay consistent, which is what we want
+ 	// with a barrier for safety as the compiler might try to do something smart.
+-	DONT_GET_SMART();
++	barrier();
+ 	if (!is_allow_su())
+ 		return 0;
+ 
+diff --git a/kernel/kernel_compat.h b/kernel/kernel_compat.h
+index 249413b9..c78948d1 100644
+--- a/kernel/kernel_compat.h
++++ b/kernel/kernel_compat.h
+@@ -20,14 +20,6 @@
+ #endif
+ #endif
+ 
+-#if defined(CONFIG_ARM) || defined(CONFIG_ARM64)
+-// arch/arm64/include/asm/barrier.h, adding dsb probably unneeded
+-#define DONT_GET_SMART() do { barrier(); isb(); } while (0)
+-#else
+-// well, compiler atleast, and not our targets
+-#define DONT_GET_SMART() barrier()
+-#endif
+-
+ extern long ksu_strncpy_from_user_nofault(char *dst,
+ 					  const void __user *unsafe_addr,
+ 					  long count);
+diff --git a/kernel/sucompat.c b/kernel/sucompat.c
+index b421fc2b..0fd03760 100644
+--- a/kernel/sucompat.c
++++ b/kernel/sucompat.c
+@@ -49,7 +49,7 @@ static char __user *ksud_user_path(void)
+ __attribute__((hot, no_stack_protector))
+ static __always_inline bool is_su_allowed(const void *ptr_to_check)
+ {
+-	DONT_GET_SMART();
++	barrier();
+ 
+ 	if (likely(!ksu_is_allow_uid(current_uid().val)))
+ 		return false;
+-- 
+2.51.0
+
+
+From e819c33c6bfab43e9a2f9d6373f28a8e3d555120 Mon Sep 17 00:00:00 2001
+From: KOWX712 <leecc0503@gmail.com>
+Date: Wed, 15 Oct 2025 17:49:12 +0800
+Subject: [PATCH 4/8] Revert "kernel: core_hook: harden prctl handler"
+
+This reverts commit 3c461792ee32277fb34b08f1d0c50b235111eefb.
+
+Signed-off-by: KOWX712 <leecc0503@gmail.com>
+---
+ kernel/core_hook.c | 30 +++++++++---------------------
+ 1 file changed, 9 insertions(+), 21 deletions(-)
+
+diff --git a/kernel/core_hook.c b/kernel/core_hook.c
+index 080b17d8..89475589 100644
+--- a/kernel/core_hook.c
++++ b/kernel/core_hook.c
+@@ -262,32 +262,20 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+ 	// if success, we modify the arg5 as result!
+ 	u32 *result = (u32 *)arg5;
+ 	u32 reply_ok = KERNEL_SU_OPTION;
+-	uid_t current_uid_val = current_uid().val;
+ 
+-	// skip this private space support if uid below 100k
+-	if (current_uid_val < 100000)
+-		goto skip_check;
++	if (KERNEL_SU_OPTION != option) {
++		return 0;
++	}
+ 
++	// TODO: find it in throne tracker!
++	uid_t current_uid_val = current_uid().val;
+ 	uid_t manager_uid = ksu_get_manager_uid();
+-	if (current_uid_val != manager_uid && 
+-		current_uid_val % 100000 == manager_uid) {
+-			ksu_set_manager_uid(current_uid_val);
++	if (current_uid_val != manager_uid &&
++	    current_uid_val % 100000 == manager_uid) {
++		ksu_set_manager_uid(current_uid_val);
+ 	}
+ 
+-skip_check:
+-	// yes this causes delay, but this keeps the delay consistent, which is what we want
+-	// with a barrier for safety as the compiler might try to do something smart.
+-	barrier();
+-	if (!is_allow_su())
+-		return 0;
+-
+-	// we move it after uid check here so they cannot
+-	// compare 0xdeadbeef call to a non-0xdeadbeef call
+-	if (KERNEL_SU_OPTION != option)
+-		return 0;
+-
+-	// just continue old logic
+-	bool from_root = !current_uid().val;
++	bool from_root = 0 == current_uid().val;
+ 	bool from_manager = is_manager();
+ 
+ 	if (!from_root && !from_manager) {
+-- 
+2.51.0
+
+
+From 807a1b2704b8b3bd2ab0ea6cc43d21afc1f396ce Mon Sep 17 00:00:00 2001
+From: KOWX712 <leecc0503@gmail.com>
+Date: Wed, 15 Oct 2025 17:49:14 +0800
+Subject: [PATCH 5/8] Revert "kernel: sucompat: add kretprobes-hooked
+ getname_flags for sucompat"
+
+This reverts commit 0a711a40727f96014c3a93caf121c437c2fcd278.
+
+Signed-off-by: KOWX712 <leecc0503@gmail.com>
+---
+ kernel/sucompat.c | 88 +++++++++--------------------------------------
+ 1 file changed, 16 insertions(+), 72 deletions(-)
+
+diff --git a/kernel/sucompat.c b/kernel/sucompat.c
+index 0fd03760..218c6c12 100644
+--- a/kernel/sucompat.c
++++ b/kernel/sucompat.c
+@@ -162,6 +162,12 @@ int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
+ 
+ 	return ksu_sucompat_kernel_common((void *)(*filename_ptr)->name, "do_execveat_common", true);
+ }
++
++int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *argv,
++			void *envp, int *flags)
++{
++	return ksu_handle_execveat_sucompat(fd, filename_ptr, argv, envp, flags);
++}
+ #else
+ // for do_execve_common on < 3.14
+ // take note: char **filename
+@@ -214,7 +220,7 @@ int ksu_handle_devpts(struct inode *inode)
+ }
+ 
+ #ifdef CONFIG_KPROBES
+-#if 0
++
+ static int faccessat_handler_pre(struct kprobe *p, struct pt_regs *regs)
+ {
+ 	struct pt_regs *real_regs = PT_REAL_REGS(regs);
+@@ -246,7 +252,6 @@ static int execve_handler_pre(struct kprobe *p, struct pt_regs *regs)
+ 	return ksu_handle_execve_sucompat(AT_FDCWD, filename_user, NULL, NULL,
+ 					  NULL);
+ }
+-#endif
+ 
+ static int pts_unix98_lookup_pre(struct kprobe *p, struct pt_regs *regs)
+ {
+@@ -287,87 +292,26 @@ static void destroy_kprobe(struct kprobe **kp_ptr)
+ 	*kp_ptr = NULL;
+ }
+ 
+-static DEFINE_MUTEX(ksu_rp_sucompat_lock);
+-static struct kretprobe *getname_rp;
+-static struct kprobe *devpts_kp;
+-
+-static int getname_flags_ret_handler(struct kretprobe_instance *ri, struct pt_regs *regs)
+-{
+-	int *flags = (int *)ri->data;
+-
+-	struct filename *ret = (struct filename *)PT_REGS_RC(regs);
+-	if (IS_ERR(ret) || !ret || !ret->name)
+-		return 0;
+-
+-	ksu_getname_flags_kernel((char **)&ret->name, *flags);
+-	return 0;
+-}
+-
+-static int getname_flags_entry_handler(struct kretprobe_instance *ri, struct pt_regs *regs)
+-{
+-	int *flags = (int *)ri->data; // as per sample, we store everything on ri->data ?
+-	*flags = (int)PT_REGS_PARM2(regs); // keep a copy of arg2
+-
+-	return 0;
+-}
+-
+-static struct kretprobe *init_kretprobe(const char *symbol,
+-					kretprobe_handler_t entry_handler,
+-					kretprobe_handler_t ret_handler,
+-					size_t data_size,
+-					int maxactive)
+-{
+-	struct kretprobe *rp = kzalloc(sizeof(struct kretprobe), GFP_KERNEL);
+-	if (!rp)
+-		return NULL;
+-
+-	rp->kp.symbol_name = symbol;
+-	rp->entry_handler = entry_handler;
+-	rp->handler = ret_handler;
+-	rp->data_size = data_size;
+-	rp->maxactive = maxactive;
+-
+-	mutex_lock(&ksu_rp_sucompat_lock);
+-	int ret = register_kretprobe(rp);
+-	mutex_unlock(&ksu_rp_sucompat_lock);
+-	if (ret) {
+-		kfree(rp);
+-		return NULL;
+-	}
+-	pr_info("rp_sucompat: planted kretprobe at %s: %p\n", rp->kp.symbol_name, rp->kp.addr);
+-
+-	return rp;
+-}
+-
+-static void destroy_kretprobe(struct kretprobe **rp_ptr)
+-{
+-	if (!rp_ptr || !*rp_ptr)
+-		return;
+-
+-	mutex_lock(&ksu_rp_sucompat_lock);
+-	unregister_kretprobe(*rp_ptr);
+-	mutex_unlock(&ksu_rp_sucompat_lock);
+-	kfree(*rp_ptr);
+-	*rp_ptr = NULL;
+-}
++static struct kprobe *su_kps[4];
+ #endif
+ 
+ // sucompat: permited process can execute 'su' to gain root access.
+ void ksu_sucompat_init()
+ {
+ #ifdef CONFIG_KPROBES
+-	devpts_kp = init_kprobe("pts_unix98_lookup", pts_unix98_lookup_pre);
+-	pr_info("%s: register getname_flags!\n", __func__);
+-	getname_rp = init_kretprobe("getname_flags", getname_flags_entry_handler,
+-			getname_flags_ret_handler, sizeof(int), 20);
++	su_kps[0] = init_kprobe(SYS_EXECVE_SYMBOL, execve_handler_pre);
++	su_kps[1] = init_kprobe(SYS_FACCESSAT_SYMBOL, faccessat_handler_pre);
++	su_kps[2] = init_kprobe(SYS_NEWFSTATAT_SYMBOL, newfstatat_handler_pre);
++	su_kps[3] = init_kprobe("pts_unix98_lookup", pts_unix98_lookup_pre);
+ #endif
+ }
+ 
+ void ksu_sucompat_exit()
+ {
+ #ifdef CONFIG_KPROBES
+-	pr_info("rp_sucompat: unregister getname_flags!\n");
+-	destroy_kretprobe(&getname_rp);
+-	destroy_kprobe(&devpts_kp);
++	int i;
++	for (i = 0; i < ARRAY_SIZE(su_kps); i++) {
++		destroy_kprobe(&su_kps[i]);
++	}
+ #endif
+ }
+-- 
+2.51.0
+
+
+From 2f584144b5bdba54f261d5163a5c713baa83b895 Mon Sep 17 00:00:00 2001
+From: KOWX712 <leecc0503@gmail.com>
+Date: Wed, 15 Oct 2025 17:49:16 +0800
+Subject: [PATCH 6/8] Revert "kerrnel: overhaul sucompat"
+
+This reverts commit 24a0ac5f07d9fd42158464618a730d640878562a.
+
+Signed-off-by: KOWX712 <leecc0503@gmail.com>
+---
+ kernel/sucompat.c | 178 +++++++++++++++++++---------------------------
+ 1 file changed, 74 insertions(+), 104 deletions(-)
+
+diff --git a/kernel/sucompat.c b/kernel/sucompat.c
+index 218c6c12..ae57becc 100644
+--- a/kernel/sucompat.c
++++ b/kernel/sucompat.c
+@@ -45,155 +45,125 @@ static char __user *ksud_user_path(void)
+ 	return userspace_stack_buffer(ksud_path, sizeof(ksud_path));
+ }
+ 
+-// every little bit helps here
+-__attribute__((hot, no_stack_protector))
+-static __always_inline bool is_su_allowed(const void *ptr_to_check)
++int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode,
++			 int *__unused_flags)
+ {
+-	barrier();
++	const char su[] = SU_PATH;
++
++	if (!ksu_is_allow_uid(current_uid().val)) {
++		return 0;
++	}
+ 
+-	if (likely(!ksu_is_allow_uid(current_uid().val)))
+-		return false;
++	char path[sizeof(su) + 1];
++	memset(path, 0, sizeof(path));
++	ksu_strncpy_from_user_nofault(path, *filename_user, sizeof(path));
+ 
+-	if (unlikely(!ptr_to_check))
+-		return false;
++	if (unlikely(!memcmp(path, su, sizeof(su)))) {
++		pr_info("faccessat su->sh!\n");
++		*filename_user = sh_user_path();
++	}
+ 
+-	return true;
++	return 0;
+ }
+ 
+-static int ksu_sucompat_user_common(const char __user **filename_user,
+-				const char *syscall_name,
+-				const bool escalate)
++int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags)
+ {
++	// const char sh[] = SH_PATH;
+ 	const char su[] = SU_PATH;
+ 
+-	char path[sizeof(su)]; // sizeof includes nullterm already!
+-	if (ksu_copy_from_user_retry(path, *filename_user, sizeof(path)))
++	if (!ksu_is_allow_uid(current_uid().val)) {
+ 		return 0;
++	}
+ 
+-	path[sizeof(path) - 1] = '\0';
++	if (unlikely(!filename_user)) {
++		return 0;
++	}
+ 
+-	if (memcmp(path, su, sizeof(su)))
++	char path[sizeof(su) + 1];
++	memset(path, 0, sizeof(path));
++// Remove this later!! we use syscall hook, so this will never happen!!!!!
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0) && 0
++	// it becomes a `struct filename *` after 5.18
++	// https://elixir.bootlin.com/linux/v5.18/source/fs/stat.c#L216
++	const char sh[] = SH_PATH;
++	struct filename *filename = *((struct filename **)filename_user);
++	if (IS_ERR(filename)) {
++		return 0;
++	}
++	if (likely(memcmp(filename->name, su, sizeof(su))))
+ 		return 0;
++	pr_info("vfs_statx su->sh!\n");
++	memcpy((void *)filename->name, sh, sizeof(sh));
++#else
++	ksu_strncpy_from_user_nofault(path, *filename_user, sizeof(path));
+ 
+-	if (escalate) {
+-		pr_info("%s su found\n", syscall_name);
+-		*filename_user = ksud_user_path();
+-		escape_to_root(); // escalate !!
+-	} else {
+-		pr_info("%s su->sh!\n", syscall_name);
++	if (unlikely(!memcmp(path, su, sizeof(su)))) {
++		pr_info("newfstatat su->sh!\n");
+ 		*filename_user = sh_user_path();
+ 	}
++#endif
+ 
+ 	return 0;
+ }
+ 
+-// sys_faccessat
+-int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode,
+-			 int *__unused_flags)
++// the call from execve_handler_pre won't provided correct value for __never_use_argument, use them after fix execve_handler_pre, keeping them for consistence for manually patched code
++int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
++				 void *__never_use_argv, void *__never_use_envp,
++				 int *__never_use_flags)
+ {
+-	if (!is_su_allowed((const void *)filename_user))
+-		return 0;
+-
+-	return ksu_sucompat_user_common(filename_user, "faccessat", false);
+-}
++	struct filename *filename;
++	const char sh[] = KSUD_PATH;
++	const char su[] = SU_PATH;
+ 
+-// sys_newfstatat, sys_fstat64
+-int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags)
+-{
+-	if (!is_su_allowed((const void *)filename_user))
++	if (unlikely(!filename_ptr))
+ 		return 0;
+ 
+-	return ksu_sucompat_user_common(filename_user, "newfstatat", false);
+-}
+-
+-// sys_execve, compat_sys_execve
+-int ksu_handle_execve_sucompat(int *fd, const char __user **filename_user,
+-			       void *__never_use_argv, void *__never_use_envp,
+-			       int *__never_use_flags)
+-{
+-	if (!is_su_allowed((const void *)filename_user))
++	filename = *filename_ptr;
++	if (IS_ERR(filename)) {
+ 		return 0;
++	}
+ 
+-	return ksu_sucompat_user_common(filename_user, "sys_execve", true);
+-}
+-
+-// getname_flags on fs/namei.c, this hooks ALL fs-related syscalls.
+-// NOT RECOMMENDED for daily use. mostly for debugging purposes.
+-int ksu_getname_flags_user(const char __user **filename_user, int flags)
+-{
+-	if (!is_su_allowed((const void *)filename_user))
++	if (likely(memcmp(filename->name, su, sizeof(su))))
+ 		return 0;
+ 
+-	// sys_execve always calls getname, which sets flags = 0 on getname_flags
+-	// we can use it to deduce if caller is likely execve
+-	return ksu_sucompat_user_common(filename_user, "getname_flags", !!!flags);
+-}
++	if (!ksu_is_allow_uid(current_uid().val))
++		return 0;
+ 
+-static int ksu_sucompat_kernel_common(void *filename_ptr, const char *function_name, bool escalate)
+-{
++	pr_info("do_execveat_common su found\n");
++	memcpy((void *)filename->name, sh, sizeof(sh));
+ 
+-	if (likely(memcmp(filename_ptr, SU_PATH, sizeof(SU_PATH))))
+-		return 0;
++	escape_to_root();
+ 
+-	if (escalate) {
+-		pr_info("%s su found\n", function_name);
+-		memcpy(filename_ptr, KSUD_PATH, sizeof(KSUD_PATH));
+-		escape_to_root();
+-	} else {
+-		pr_info("%s su->sh\n", function_name);
+-		memcpy(filename_ptr, SH_PATH, sizeof(SH_PATH));
+-	}
+ 	return 0;
+ }
+ 
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0)
+-// for do_execveat_common / do_execve_common on >= 3.14
+-// take note: struct filename **filename
+-int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
+-				 void *__never_use_argv, void *__never_use_envp,
+-				 int *__never_use_flags)
++int ksu_handle_execve_sucompat(int *fd, const char __user **filename_user,
++			       void *__never_use_argv, void *__never_use_envp,
++			       int *__never_use_flags)
+ {
+-	if (!is_su_allowed((const void *)filename_ptr))
++	const char su[] = SU_PATH;
++	char path[sizeof(su) + 1];
++
++	if (unlikely(!filename_user))
+ 		return 0;
+ 
+-	// struct filename *filename = *filename_ptr;
+-	// return ksu_do_execveat_common((void *)filename->name, "do_execveat_common");
+-	// nvm this, just inline
++	memset(path, 0, sizeof(path));
++	ksu_strncpy_from_user_nofault(path, *filename_user, sizeof(path));
+ 
+-	return ksu_sucompat_kernel_common((void *)(*filename_ptr)->name, "do_execveat_common", true);
+-}
++	if (likely(memcmp(path, su, sizeof(su))))
++		return 0;
+ 
+-int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *argv,
+-			void *envp, int *flags)
+-{
+-	return ksu_handle_execveat_sucompat(fd, filename_ptr, argv, envp, flags);
+-}
+-#else
+-// for do_execve_common on < 3.14
+-// take note: char **filename
+-int ksu_legacy_execve_sucompat(const char **filename_ptr,
+-				 void *__never_use_argv,
+-				 void *__never_use_envp)
+-{
+-	if (!is_su_allowed((const void *)filename_ptr))
++	if (!ksu_is_allow_uid(current_uid().val))
+ 		return 0;
+ 
+-	return ksu_sucompat_kernel_common((void *)*filename_ptr, "do_execve_common", true);
+-}
+-#endif
++	pr_info("sys_execve su found\n");
++	*filename_user = ksud_user_path();
+ 
+-// getname_flags on fs/namei.c, this hooks ALL fs-related syscalls.
+-// put the hook right after usercopy
+-// NOT RECOMMENDED for daily use. mostly for debugging purposes.
+-int ksu_getname_flags_kernel(char **kname, int flags)
+-{
+-	if (!is_su_allowed((const void *)kname))
+-		return 0;
++	escape_to_root();
+ 
+-	return ksu_sucompat_kernel_common((void *)*kname, "getname_flags", !!!flags);
++	return 0;
+ }
+ 
+-
+ int ksu_handle_devpts(struct inode *inode)
+ {
+ 	if (!current->mm) {
+-- 
+2.51.0
+
+
+From d541f7156fd5d5643f6b8d63a7631492f275b09e Mon Sep 17 00:00:00 2001
+From: KOWX712 <leecc0503@gmail.com>
+Date: Wed, 15 Oct 2025 17:49:28 +0800
+Subject: [PATCH 7/8] Revert "kernel: core_hook: only umount when unmountable >
+ 0"
+
+This reverts commit b6a2cc6787f5f8c884fbbfa188b350d15a8bf6f3.
+
+Signed-off-by: KOWX712 <leecc0503@gmail.com>
+---
+ kernel/core_hook.c | 6 ------
+ 1 file changed, 6 deletions(-)
+
+diff --git a/kernel/core_hook.c b/kernel/core_hook.c
+index 89475589..1489e49c 100644
+--- a/kernel/core_hook.c
++++ b/kernel/core_hook.c
+@@ -47,7 +47,6 @@
+ #include "kernel_compat.h"
+ 
+ static bool ksu_module_mounted = false;
+-static unsigned int ksu_unmountable_count = 0;
+ 
+ extern int handle_sepolicy(unsigned long arg3, void __user *arg4);
+ 
+@@ -321,7 +320,6 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+ 		// debug
+ 		// pr_info("cmd_add_try_umount: %s added!\n", buf);
+ 		list_add(&new_entry->list, &mount_list);
+-		ksu_unmountable_count++;
+ 
+ 		if (copy_to_user(result, &reply_ok, sizeof(reply_ok))) {
+ 			pr_err("prctl reply error, cmd: %lu\n", arg2);
+@@ -616,10 +614,6 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+ 		return 0;
+ 	}
+ 
+-	// we dont need to unmount if theres no unmountable
+-	if (!ksu_unmountable_count)
+-		return 0;
+-
+ 	if (!new || !old) {
+ 		return 0;
+ 	}
+-- 
+2.51.0
+
+
+From ec5149a3c7048c577a743d611a8fe00bce880404 Mon Sep 17 00:00:00 2001
+From: KOWX712 <leecc0503@gmail.com>
+Date: Wed, 15 Oct 2025 17:51:56 +0800
+Subject: [PATCH 8/8] Revert "kernel: core_hook: expose prctl interface for
+ umount list (5ec1cff#16)"
+
+This reverts commit  7f2cee89e15a2ba1647a9186e77a908cb45bc714
+
+Signed-off-by: KOWX712 <leecc0503@gmail.com>
+---
+ kernel/core_hook.c | 99 ++++++++++++++++++++--------------------------
+ kernel/ksu.h       |  1 -
+ 2 files changed, 42 insertions(+), 58 deletions(-)
+
+diff --git a/kernel/core_hook.c b/kernel/core_hook.c
+index 1489e49c..76399129 100644
+--- a/kernel/core_hook.c
++++ b/kernel/core_hook.c
+@@ -249,12 +249,6 @@ static void nuke_ext4_sysfs(const char *custompath) {
+ 	path_put(&path);
+ }
+ 
+-struct mount_entry {
+-    char *umountable;
+-    struct list_head list;
+-};
+-LIST_HEAD(mount_list);
+-
+ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+ 		     unsigned long arg4, unsigned long arg5)
+ {
+@@ -286,47 +280,6 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+ 	pr_info("option: 0x%x, cmd: %ld\n", option, arg2);
+ #endif
+ 
+-	if (arg2 == CMD_ADD_TRY_UMOUNT) {
+-		struct mount_entry *new_entry, *entry;
+-		char buf[384];
+-
+-		if (copy_from_user(buf, (const char __user *)arg3, sizeof(buf) - 1)) {
+-			pr_err("cmd_add_try_umount: failed to copy user string\n");
+-			return 0;
+-		}
+-		buf[384 - 1] = '\0';
+-
+-		new_entry = kmalloc(sizeof(*new_entry), GFP_KERNEL);
+-		if (!new_entry)
+-			return 0;
+-
+-		new_entry->umountable = kstrdup(buf, GFP_KERNEL);
+-		if (!new_entry->umountable) {
+-			kfree(new_entry);
+-			return 0;
+-		}
+-
+-		// disallow dupes
+-		// if this gets too many, we can consider moving this whole task to a kthread
+-		list_for_each_entry(entry, &mount_list, list) {
+-			if (!strcmp(entry->umountable, buf)) {
+-				pr_info("cmd_add_try_umount: %s is already here!\n", buf);
+-				kfree(new_entry->umountable);
+-				kfree(new_entry);
+-				return 0;
+-			}	
+-		}	
+-
+-		// debug
+-		// pr_info("cmd_add_try_umount: %s added!\n", buf);
+-		list_add(&new_entry->list, &mount_list);
+-
+-		if (copy_to_user(result, &reply_ok, sizeof(reply_ok))) {
+-			pr_err("prctl reply error, cmd: %lu\n", arg2);
+-		}
+-		return 0;
+-	}
+-
+ 	if (arg2 == CMD_NUKE_EXT4_SYSFS) {
+ 		char buf[384];
+ 
+@@ -582,13 +535,34 @@ static bool is_non_appuid(kuid_t uid)
+ 	return appid < FIRST_APPLICATION_UID;
+ }
+ 
+-static void ksu_path_umount(const char *mnt, struct path *path, int flags)
++static bool should_umount(struct path *path)
++{
++	if (!path) {
++		return false;
++	}
++
++	if (current->nsproxy->mnt_ns == init_nsproxy.mnt_ns) {
++		pr_info("ignore global mnt namespace process: %d\n",
++			current_uid().val);
++		return false;
++	}
++
++	if (path->mnt && path->mnt->mnt_sb && path->mnt->mnt_sb->s_type) {
++		const char *fstype = path->mnt->mnt_sb->s_type->name;
++		return strcmp(fstype, "overlay") == 0;
++	}
++	return false;
++}
++
++static void ksu_umount_mnt(struct path *path, int flags)
+ {
+ 	int err = path_umount(path, flags);
+-	pr_info("%s: path: %s code: %d\n", __func__, mnt, err);
++	if (err) {
++		pr_info("umount %s failed: %d\n", path->dentry->d_iname, err);
++	}
+ }
+ 
+-static void try_umount(const char *mnt, int flags)
++static void try_umount(const char *mnt, bool check_mnt, int flags)
+ {
+ 	struct path path;
+ 	int err = kern_path(mnt, 0, &path);
+@@ -602,13 +576,17 @@ static void try_umount(const char *mnt, int flags)
+ 		return;
+ 	}
+ 
+-	ksu_path_umount(mnt, &path, flags);
++	// we are only interest in some specific mounts
++	if (check_mnt && !should_umount(&path)) {
++		path_put(&path);
++		return;
++	}
++
++	ksu_umount_mnt(&path, flags);
+ }
+ 
+ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+ {
+-	struct mount_entry *entry;
+-
+ 	// this hook is used for umounting overlayfs for some uid, if there isn't any module mounted, just ignore it!
+ 	if (!ksu_module_mounted) {
+ 		return 0;
+@@ -671,10 +649,17 @@ do_umount:
+ 		current->pid);
+ #endif
+ 
+-	// don't free! keep on heap! this is used on subsequent setuid calls
+-	// if this is freed, we dont have anything to umount next
+-	list_for_each_entry(entry, &mount_list, list)
+-		try_umount(entry->umountable, MNT_DETACH);
++	// fixme: use `collect_mounts` and `iterate_mount` to iterate all mountpoint and
++	// filter the mountpoint whose target is `/data/adb`
++	try_umount("/odm", true, 0);
++	try_umount("/system", true, 0);
++	try_umount("/vendor", true, 0);
++	try_umount("/product", true, 0);
++	try_umount("/system_ext", true, 0);
++	try_umount("/data/adb/modules", false, MNT_DETACH);
++
++	// try umount ksu temp path
++	try_umount("/debug_ramdisk", false, MNT_DETACH);
+ 
+ 	return 0;
+ }
+diff --git a/kernel/ksu.h b/kernel/ksu.h
+index ef2bafb9..a2ffc41e 100644
+--- a/kernel/ksu.h
++++ b/kernel/ksu.h
+@@ -25,7 +25,6 @@
+ #define CMD_ENABLE_SU 15
+ #define CMD_GET_MANAGER_UID 16
+ 
+-#define CMD_ADD_TRY_UMOUNT 10001
+ #define CMD_NUKE_EXT4_SYSFS 10002
+ 
+ #define EVENT_POST_FS_DATA 1
+-- 
+2.51.0
+

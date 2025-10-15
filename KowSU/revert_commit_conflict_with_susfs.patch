@@ -1,7 +1,7 @@
 From b511628f5448480641c41e11ae4314f230c6f043 Mon Sep 17 00:00:00 2001
 From: KOWX712 <leecc0503@gmail.com>
 Date: Wed, 15 Oct 2025 17:45:10 +0800
-Subject: [PATCH 1/8] Revert "ksud: add cmd for add-try-umount (5ec1cff#16)"
+Subject: [PATCH 1/9] Revert "ksud: add cmd for add-try-umount (5ec1cff#16)"
 
 This reverts commit a8c5f94e7ab09cd09d5db9c6c4a4cfc793197129
 
@@ -65,7 +65,7 @@ index aba77698..be804a0e 100644
 From a91b21ed1eb5ca63ff8174292e800c7541db3f29 Mon Sep 17 00:00:00 2001
 From: KOWX712 <leecc0503@gmail.com>
 Date: Wed, 15 Oct 2025 17:46:19 +0800
-Subject: [PATCH 2/8] Revert "kernel: core_hook: add support for KernelNoSU v2"
+Subject: [PATCH 2/9] Revert "kernel: core_hook: add support for KernelNoSU v2"
 
 This reverts commit 51e5d782e7f68d03d9360842c29d8aa33597579f.
 
@@ -188,7 +188,7 @@ index b67ff1b8..2cc051f7 100644
 From d499931ec0392452d0f1f037480d468771993ff1 Mon Sep 17 00:00:00 2001
 From: KOWX712 <leecc0503@gmail.com>
 Date: Wed, 15 Oct 2025 17:48:29 +0800
-Subject: [PATCH 3/8] Revert "kernel: harden barriers for arm/arm64"
+Subject: [PATCH 3/9] Revert "kernel: harden barriers for arm/arm64"
 
 This reverts commit 8a22bbdbe3d8579980af58bf060630fbfb18603b.
 
@@ -251,7 +251,7 @@ index b421fc2b..0fd03760 100644
 From e819c33c6bfab43e9a2f9d6373f28a8e3d555120 Mon Sep 17 00:00:00 2001
 From: KOWX712 <leecc0503@gmail.com>
 Date: Wed, 15 Oct 2025 17:49:12 +0800
-Subject: [PATCH 4/8] Revert "kernel: core_hook: harden prctl handler"
+Subject: [PATCH 4/9] Revert "kernel: core_hook: harden prctl handler"
 
 This reverts commit 3c461792ee32277fb34b08f1d0c50b235111eefb.
 
@@ -313,7 +313,7 @@ index 080b17d8..89475589 100644
 From 807a1b2704b8b3bd2ab0ea6cc43d21afc1f396ce Mon Sep 17 00:00:00 2001
 From: KOWX712 <leecc0503@gmail.com>
 Date: Wed, 15 Oct 2025 17:49:14 +0800
-Subject: [PATCH 5/8] Revert "kernel: sucompat: add kretprobes-hooked
+Subject: [PATCH 5/9] Revert "kernel: sucompat: add kretprobes-hooked
  getname_flags for sucompat"
 
 This reverts commit 0a711a40727f96014c3a93caf121c437c2fcd278.
@@ -461,7 +461,7 @@ index 0fd03760..218c6c12 100644
 From 2f584144b5bdba54f261d5163a5c713baa83b895 Mon Sep 17 00:00:00 2001
 From: KOWX712 <leecc0503@gmail.com>
 Date: Wed, 15 Oct 2025 17:49:16 +0800
-Subject: [PATCH 6/8] Revert "kerrnel: overhaul sucompat"
+Subject: [PATCH 6/9] Revert "kerrnel: overhaul sucompat"
 
 This reverts commit 24a0ac5f07d9fd42158464618a730d640878562a.
 
@@ -711,7 +711,7 @@ index 218c6c12..ae57becc 100644
 From d541f7156fd5d5643f6b8d63a7631492f275b09e Mon Sep 17 00:00:00 2001
 From: KOWX712 <leecc0503@gmail.com>
 Date: Wed, 15 Oct 2025 17:49:28 +0800
-Subject: [PATCH 7/8] Revert "kernel: core_hook: only umount when unmountable >
+Subject: [PATCH 7/9] Revert "kernel: core_hook: only umount when unmountable >
  0"
 
 This reverts commit b6a2cc6787f5f8c884fbbfa188b350d15a8bf6f3.
@@ -759,7 +759,7 @@ index 89475589..1489e49c 100644
 From ec5149a3c7048c577a743d611a8fe00bce880404 Mon Sep 17 00:00:00 2001
 From: KOWX712 <leecc0503@gmail.com>
 Date: Wed, 15 Oct 2025 17:51:56 +0800
-Subject: [PATCH 8/8] Revert "kernel: core_hook: expose prctl interface for
+Subject: [PATCH 8/9] Revert "kernel: core_hook: expose prctl interface for
  umount list (5ec1cff#16)"
 
 This reverts commit  7f2cee89e15a2ba1647a9186e77a908cb45bc714
@@ -928,6 +928,96 @@ index ef2bafb9..a2ffc41e 100644
  #define CMD_NUKE_EXT4_SYSFS 10002
  
  #define EVENT_POST_FS_DATA 1
+-- 
+2.51.0
+
+
+From f91f14bfa90d76524d57a3d0b305ab5a4ad68ac8 Mon Sep 17 00:00:00 2001
+From: KOWX712 <leecc0503@gmail.com>
+Date: Thu, 16 Oct 2025 06:28:39 +0800
+Subject: [PATCH 9/9] Revert "Unmount isolated process which forks from zygote
+ unconditionally (#2776)"
+
+This reverts commit cfb687308932304d171413d6219eb00d12b47984.
+
+Signed-off-by: KOWX712 <leecc0503@gmail.com>
+---
+ kernel/core_hook.c | 29 +++++++++--------------------
+ 1 file changed, 9 insertions(+), 20 deletions(-)
+
+diff --git a/kernel/core_hook.c b/kernel/core_hook.c
+index 76399129..db72d214 100644
+--- a/kernel/core_hook.c
++++ b/kernel/core_hook.c
+@@ -63,7 +63,7 @@ static inline bool is_allow_su()
+ 	return ksu_is_allow_uid(current_uid().val);
+ }
+ 
+-static inline bool is_unsupported_app_uid(uid_t uid)
++static inline bool is_unsupported_uid(uid_t uid)
+ {
+ #define LAST_APPLICATION_UID 19999
+ 	uid_t appid = uid % 100000;
+@@ -526,13 +526,14 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+ 	return 0;
+ }
+ 
+-static bool is_non_appuid(kuid_t uid)
++static bool is_appuid(kuid_t uid)
+ {
+ #define PER_USER_RANGE 100000
+ #define FIRST_APPLICATION_UID 10000
++#define LAST_APPLICATION_UID 19999
+ 
+ 	uid_t appid = uid.val % PER_USER_RANGE;
+-	return appid < FIRST_APPLICATION_UID;
++	return appid >= FIRST_APPLICATION_UID && appid <= LAST_APPLICATION_UID;
+ }
+ 
+ static bool should_umount(struct path *path)
+@@ -604,25 +605,13 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+ 		return 0;
+ 	}
+ 
+-	if (is_non_appuid(new_uid)) {
+-#ifdef CONFIG_KSU_DEBUG
+-		pr_info("handle setuid ignore non application uid: %d\n", new_uid.val);
+-#endif
++	if (!is_appuid(new_uid) || is_unsupported_uid(new_uid.val)) {
++		// pr_info("handle setuid ignore non application or isolated uid: %d\n", new_uid.val);
+ 		return 0;
+ 	}
+ 
+-	// isolated process may be directly forked from zygote, always unmount
+-	if (is_unsupported_app_uid(new_uid.val)) {
+-#ifdef CONFIG_KSU_DEBUG
+-		pr_info("handle umount for unsupported application uid: %d\n", new_uid.val);
+-#endif
+-		goto do_umount;
+-	}
+-
+ 	if (ksu_is_allow_uid(new_uid.val)) {
+-#ifdef CONFIG_KSU_DEBUG
+-		pr_info("handle setuid ignore allowed application: %d\n", new_uid.val);
+-#endif
++		// pr_info("handle setuid ignore allowed application: %d\n", new_uid.val);
+ 		return 0;
+ 	}
+ 
+@@ -634,11 +623,11 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+ #endif
+ 	}
+ 
+-do_umount:
+ 	// check old process's selinux context, if it is not zygote, ignore it!
+ 	// because some su apps may setuid to untrusted_app but they are in global mount namespace
+ 	// when we umount for such process, that is a disaster!
+-	if (!is_zygote(old->security)) {
++	bool is_zygote_child = is_zygote(old->security);
++	if (!is_zygote_child) {
+ 		pr_info("handle umount ignore non zygote child: %d\n",
+ 			current->pid);
+ 		return 0;
 -- 
 2.51.0
 

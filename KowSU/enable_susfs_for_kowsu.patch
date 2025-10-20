@@ -1,15 +1,14 @@
-From 402cbb377e6ef704464557308a5b86fdd7aa06d8 Mon Sep 17 00:00:00 2001
+From 09ae3d0bb9b1094d94539bf675063e2acc737d11 Mon Sep 17 00:00:00 2001
 From: KOWX712 <leecc0503@gmail.com>
-Date: Wed, 15 Oct 2025 18:56:10 +0800
+Date: Mon, 20 Oct 2025 10:08:16 +0800
 Subject: [PATCH] enable_susfs_for_kowsu
 
-head: https://gitlab.com/simonpunk/susfs4ksu/-/commits/a10a8531022879096abfabca537a3fc0cbb04115/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch
 Signed-off-by: KOWX712 <leecc0503@gmail.com>
 ---
- kernel/Kconfig           | 127 +++++++++
+ kernel/Kconfig           | 138 +++++++++
  kernel/Makefile          |  77 +++++
  kernel/allowlist.c       |   8 +-
- kernel/core_hook.c       | 593 ++++++++++++++++++++++++++++++++++++++-
+ kernel/core_hook.c       | 614 ++++++++++++++++++++++++++++++++++++++-
  kernel/kernel_compat.c   |  10 +
  kernel/kernel_compat.h   |   1 +
  kernel/ksu.c             |   8 +
@@ -17,14 +16,14 @@ Signed-off-by: KOWX712 <leecc0503@gmail.com>
  kernel/selinux/rules.c   |   9 +
  kernel/selinux/selinux.c |  92 ++++++
  kernel/selinux/selinux.h |  12 +
- kernel/sucompat.c        | 105 +++++--
- 12 files changed, 1028 insertions(+), 22 deletions(-)
+ kernel/sucompat.c        | 105 ++++++-
+ 12 files changed, 1058 insertions(+), 24 deletions(-)
 
 diff --git a/kernel/Kconfig b/kernel/Kconfig
-index 7aea4178..bc372862 100644
+index 6211c5a2..db252379 100644
 --- a/kernel/Kconfig
 +++ b/kernel/Kconfig
-@@ -25,4 +25,131 @@ config KSU_THRONE_TRACKER_ALWAYS_THREADED
+@@ -32,4 +32,142 @@ config KSU_THRONE_TRACKER_ALWAYS_THREADED
  	  on some FDE or FBEv1 setups.
  	  If unsure, say n.
  
@@ -153,14 +152,25 @@ index 7aea4178..bc372862 100644
 +                the same as the su implementaion of non-gki kernel without kprobe supported.
 +      - Only apps with root access granted by ksu manager are allowed to get root.
 +
++config KSU_SUSFS_SUS_MAP
++    bool "Enable to hide some mmapped real file from different proc maps interfaces"
++    depends on KSU_SUSFS
++    default y
++    help
++      - Allow hiding mmapped real file from /proc/<pid>/[maps|smaps|smaps_rollup|map_files|mem|pagemap]
++      - It does NOT support hiding for anon memory.
++      - It does NOT hide any inline hooks or plt hooks cause by the injected library itself.
++      - It may not be able to evade detections by apps that implement a good injection detection.
++      - Effective only on zygote spawned umounted user app process.
++
 +endmenu
 +
  endmenu
 diff --git a/kernel/Makefile b/kernel/Makefile
-index 9fec3ef3..8a190993 100644
+index e960e5ef..0fe4277a 100644
 --- a/kernel/Makefile
 +++ b/kernel/Makefile
-@@ -51,4 +51,81 @@ ccflags-y += -DEXPECTED_HASH=\"$(KSU_EXPECTED_HASH)\"
+@@ -55,4 +55,81 @@ ccflags-y += -DEXPECTED_HASH=\"$(KSU_EXPECTED_HASH)\"
  ccflags-y += -Wno-implicit-function-declaration -Wno-strict-prototypes -Wno-int-conversion -Wno-gcc-compat
  ccflags-y += -Wno-declaration-after-statement -Wno-unused-function
  
@@ -283,7 +293,7 @@ index 97455675..01020863 100644
  	return ksu_queue_work(&ksu_save_work);
  }
 diff --git a/kernel/core_hook.c b/kernel/core_hook.c
-index 76399129..3937b782 100644
+index 40b75f3c..0312a003 100644
 --- a/kernel/core_hook.c
 +++ b/kernel/core_hook.c
 @@ -34,6 +34,10 @@
@@ -394,7 +404,7 @@ index 76399129..3937b782 100644
  extern void ksu_sucompat_init();
  extern void ksu_sucompat_exit();
  
-@@ -252,6 +336,13 @@ static void nuke_ext4_sysfs(const char *custompath) {
+@@ -262,6 +346,13 @@ static void nuke_ext4_sysfs(const char *custompath) {
  int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
  		     unsigned long arg4, unsigned long arg5)
  {
@@ -408,7 +418,7 @@ index 76399129..3937b782 100644
  	// if success, we modify the arg5 as result!
  	u32 *result = (u32 *)arg5;
  	u32 reply_ok = KERNEL_SU_OPTION;
-@@ -345,6 +436,9 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+@@ -376,6 +467,9 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
  			if (!post_fs_data_lock) {
  				post_fs_data_lock = true;
  				pr_info("post-fs-data triggered\n");
@@ -418,17 +428,20 @@ index 76399129..3937b782 100644
  				on_post_fs_data();
  			}
  			break;
-@@ -354,6 +448,9 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+@@ -383,8 +477,10 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+ 		case EVENT_BOOT_COMPLETED: {
+ 			static bool boot_complete_lock = false;
  			if (!boot_complete_lock) {
- 				boot_complete_lock = true;
- 				pr_info("boot_complete triggered\n");
+-				boot_complete_lock = true;
+-				pr_info("boot_complete triggered\n");
++				boot_complete_lock = true;	
 +#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
 +				susfs_is_boot_completed_triggered = true;
 +#endif
+ 				avc_spoof_init(); 
  			}
  			break;
- 		}
-@@ -445,6 +542,374 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+@@ -477,6 +573,392 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
  		return 0;
  	}
  
@@ -786,6 +799,24 @@ index 76399129..3937b782 100644
 +			return 0;
 +		}
 +#endif // #ifdef CONFIG_KSU_SUSFS_SUS_SU
++#ifdef CONFIG_KSU_SUSFS_SUS_MAP
++		if (arg2 == CMD_SUSFS_ADD_SUS_MAP) {
++			int error = 0;
++			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_sus_map))) {
++					pr_err("susfs: CMD_SUSFS_ADD_SUS_MAP -> arg3 is not accessible\n");
++					return 0;
++			}
++			if (!ksu_access_ok((void __user*)arg5, sizeof(error))) {
++					pr_err("susfs: CMD_SUSFS_ADD_SUS_MAP -> arg5 is not accessible\n");
++					return 0;
++			}
++			error = susfs_add_sus_map((struct st_susfs_sus_map __user*)arg3);
++			pr_info("susfs: CMD_SUSFS_ADD_SUS_MAP -> ret: %d\n", error);
++			if (copy_to_user((void __user*)arg5, &error, sizeof(error)))
++					pr_info("susfs: copy_to_user() failed\n");
++			return 0;
++		}
++#endif // #ifdef CONFIG_KSU_SUSFS_SUS_MAP
 +		if (arg2 == CMD_SUSFS_ENABLE_AVC_LOG_SPOOFING) {
 +			int error = 0;
 +			if (arg3 != 0 && arg3 != 1) {
@@ -803,7 +834,7 @@ index 76399129..3937b782 100644
  	// all other cmds are for 'root manager'
  	if (!from_manager) {
  		return 0;
-@@ -510,6 +975,12 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+@@ -542,6 +1024,12 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
  		}
  
  		if (enabled) {
@@ -816,7 +847,7 @@ index 76399129..3937b782 100644
  			ksu_sucompat_init();
  		} else {
  			ksu_sucompat_exit();
-@@ -547,11 +1018,15 @@ static bool should_umount(struct path *path)
+@@ -592,11 +1080,15 @@ static bool should_umount(struct path *path)
  		return false;
  	}
  
@@ -832,7 +863,7 @@ index 76399129..3937b782 100644
  }
  
  static void ksu_umount_mnt(struct path *path, int flags)
-@@ -562,7 +1037,11 @@ static void ksu_umount_mnt(struct path *path, int flags)
+@@ -607,7 +1099,11 @@ static void ksu_umount_mnt(struct path *path, int flags)
  	}
  }
  
@@ -844,7 +875,7 @@ index 76399129..3937b782 100644
  {
  	struct path path;
  	int err = kern_path(mnt, 0, &path);
-@@ -582,9 +1061,118 @@ static void try_umount(const char *mnt, bool check_mnt, int flags)
+@@ -627,9 +1123,118 @@ static void try_umount(const char *mnt, bool check_mnt, int flags)
  		return;
  	}
  
@@ -963,7 +994,7 @@ index 76399129..3937b782 100644
  int ksu_handle_setuid(struct cred *new, const struct cred *old)
  {
  	// this hook is used for umounting overlayfs for some uid, if there isn't any module mounted, just ignore it!
-@@ -663,6 +1251,7 @@ do_umount:
+@@ -696,6 +1301,7 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
  
  	return 0;
  }
@@ -1411,5 +1442,5 @@ index ae57becc..8ab08a3f 100644
 +#endif // #ifdef CONFIG_KSU_SUSFS_SUS_SU
 +
 -- 
-2.51.0
+2.51.1.dirty
 

@@ -1,29 +1,65 @@
-From b511628f5448480641c41e11ae4314f230c6f043 Mon Sep 17 00:00:00 2001
+From 3a5fc3fc54808ad18401aa5d2a8c7ef2cb79473b Mon Sep 17 00:00:00 2001
 From: KOWX712 <leecc0503@gmail.com>
-Date: Wed, 15 Oct 2025 17:45:10 +0800
-Subject: [PATCH 1/9] Revert "ksud: add cmd for add-try-umount (5ec1cff#16)"
+Date: Mon, 20 Oct 2025 09:54:21 +0800
+Subject: [PATCH 01/11] Revert "ksud: add wipe umount list cmd"
 
-This reverts commit a8c5f94e7ab09cd09d5db9c6c4a4cfc793197129
+This reverts commit 04139a68658e4a7e207860b582957ae2d86d124d.
 
 Signed-off-by: KOWX712 <leecc0503@gmail.com>
 ---
- userspace/ksud/src/cli.rs | 23 -----------------------
- 1 file changed, 23 deletions(-)
+ userspace/ksud/src/cli.rs | 11 -----------
+ 1 file changed, 11 deletions(-)
 
 diff --git a/userspace/ksud/src/cli.rs b/userspace/ksud/src/cli.rs
-index aba77698..be804a0e 100644
+index 4c3e9c17..aba77698 100644
 --- a/userspace/ksud/src/cli.rs
 +++ b/userspace/ksud/src/cli.rs
-@@ -10,8 +10,6 @@ use log::LevelFilter;
- use crate::defs::KSUD_VERBOSE_LOG_FILE;
- use crate::{apk_sign, assets, debug, defs, init_event, ksucalls, module, utils};
+@@ -31,9 +31,6 @@ enum Commands {
+         command: Module,
+     },
  
--use std::ffi::CString;
+-    /// Wipe the umount list
+-    WipeUmountList,
 -
- /// KernelSU userspace cli
- #[derive(Parser, Debug)]
- #[command(author, version = defs::VERSION_NAME, about, long_about = None)]
-@@ -31,11 +29,6 @@ enum Commands {
+     /// Add custom try umount path
+     AddTryUmount {  
+         path: PathBuf,  
+@@ -331,14 +328,6 @@ pub fn run() -> Result<()> {
+                 Module::List => module::list_modules(),
+             }
+         }
+-	Commands::WipeUmountList => {  
+-	    let mut dummy: u32 = 0;  
+-	    unsafe {  
+-		libc::prctl(0xDEADBEEFu32 as i32, 10000, 0, 0, &mut dummy as *mut u32 as libc::c_ulong);  
+-	     }
+-             Ok(())  
+-	}
+-
+ 	Commands::AddTryUmount { path } => {  
+ 	    match CString::new(path.to_string_lossy().as_ref()) {  
+ 		std::result::Result::Ok(c_path) => {  
+-- 
+2.51.1.dirty
+
+
+From 654e9537b24450da5cdfe8e2b5b8098c9ea03bef Mon Sep 17 00:00:00 2001
+From: KOWX712 <leecc0503@gmail.com>
+Date: Mon, 20 Oct 2025 09:57:15 +0800
+Subject: [PATCH 02/11] Revert "ksud: add cmd for add-try-umount (5ec1cff#16)"
+
+This reverts commit 1c58a3836d3a7e112bb1690256afd53348035610.
+
+Signed-off-by: KOWX712 <leecc0503@gmail.com>
+---
+ userspace/ksud/src/cli.rs | 20 --------------------
+ 1 file changed, 20 deletions(-)
+
+diff --git a/userspace/ksud/src/cli.rs b/userspace/ksud/src/cli.rs
+index aba77698..934148d9 100644
+--- a/userspace/ksud/src/cli.rs
++++ b/userspace/ksud/src/cli.rs
+@@ -31,10 +31,6 @@ enum Commands {
          command: Module,
      },
  
@@ -31,11 +67,10 @@ index aba77698..be804a0e 100644
 -    AddTryUmount {  
 -        path: PathBuf,  
 -    },
--
+ 
      /// Nuke custom ext4 sysfs path
      NukeExt4Sysfs {
-         path: PathBuf,
-@@ -328,22 +321,6 @@ pub fn run() -> Result<()> {
+@@ -328,22 +324,6 @@ pub fn run() -> Result<()> {
                  Module::List => module::list_modules(),
              }
          }
@@ -59,15 +94,16 @@ index aba77698..be804a0e 100644
  	    match CString::new(path.to_string_lossy().as_ref()) {  
  		std::result::Result::Ok(c_path) => {  
 -- 
-2.51.0
+2.51.1.dirty
 
 
-From a91b21ed1eb5ca63ff8174292e800c7541db3f29 Mon Sep 17 00:00:00 2001
+From a77c760071f7c3d35c927d72903b5e7fb9c1d0a1 Mon Sep 17 00:00:00 2001
 From: KOWX712 <leecc0503@gmail.com>
-Date: Wed, 15 Oct 2025 17:46:19 +0800
-Subject: [PATCH 2/9] Revert "kernel: core_hook: add support for KernelNoSU v2"
+Date: Mon, 20 Oct 2025 10:00:17 +0800
+Subject: [PATCH 03/11] Revert "kernel: core_hook: add support for KernelNoSU
+ v2"
 
-This reverts commit 51e5d782e7f68d03d9360842c29d8aa33597579f.
+This reverts commit 3041115f1c75e54af198f555f70553e309b47826.
 
 Signed-off-by: KOWX712 <leecc0503@gmail.com>
 ---
@@ -75,10 +111,10 @@ Signed-off-by: KOWX712 <leecc0503@gmail.com>
  1 file changed, 39 insertions(+), 36 deletions(-)
 
 diff --git a/kernel/core_hook.c b/kernel/core_hook.c
-index b67ff1b8..2cc051f7 100644
+index d566d14e..d28c3873 100644
 --- a/kernel/core_hook.c
 +++ b/kernel/core_hook.c
-@@ -286,42 +286,6 @@ skip_check:
+@@ -296,42 +296,6 @@ skip_check:
  	if (KERNEL_SU_OPTION != option)
  		return 0;
  
@@ -121,7 +157,7 @@ index b67ff1b8..2cc051f7 100644
  	// just continue old logic
  	bool from_root = !current_uid().val;
  	bool from_manager = is_manager();
-@@ -331,6 +295,10 @@ skip_check:
+@@ -341,6 +305,10 @@ skip_check:
  		return 0;
  	}
  
@@ -129,10 +165,10 @@ index b67ff1b8..2cc051f7 100644
 +	pr_info("option: 0x%x, cmd: %ld\n", option, arg2);
 +#endif
 +
- 	if (arg2 == CMD_ADD_TRY_UMOUNT) {
- 		struct mount_entry *new_entry, *entry;
- 		char buf[384];
-@@ -400,6 +368,17 @@ skip_check:
+ 	if (arg2 == CMD_WIPE_UMOUNT_LIST) {
+ 		struct mount_entry *entry, *tmp;
+ 		list_for_each_entry_safe(entry, tmp, &mount_list, list) {
+@@ -447,6 +415,17 @@ skip_check:
  		return 0;
  	}
  
@@ -150,7 +186,7 @@ index b67ff1b8..2cc051f7 100644
  	// Both root manager and root processes should be allowed to get version
  	if (arg2 == CMD_GET_VERSION) {
  		u32 version = KERNEL_SU_VERSION;
-@@ -581,6 +560,30 @@ skip_check:
+@@ -629,6 +608,30 @@ skip_check:
  		return 0;
  	}
  
@@ -178,19 +214,19 @@ index b67ff1b8..2cc051f7 100644
 +		return 0;
 +	}
 +
- 	return 0;
- }
- 
+ 	if (arg2 == CMD_IS_AVC_SPOOF_ENABLED) {
+ 		if (copy_to_user(arg3, &ksu_avc_spoof_enabled, sizeof(ksu_avc_spoof_enabled))) {
+ 			pr_err("copy avc spoof failed\n");
 -- 
-2.51.0
+2.51.1.dirty
 
 
-From d499931ec0392452d0f1f037480d468771993ff1 Mon Sep 17 00:00:00 2001
+From b32a89a0aa6e7ab3171938548a81b029edfb81cf Mon Sep 17 00:00:00 2001
 From: KOWX712 <leecc0503@gmail.com>
-Date: Wed, 15 Oct 2025 17:48:29 +0800
-Subject: [PATCH 3/9] Revert "kernel: harden barriers for arm/arm64"
+Date: Mon, 20 Oct 2025 10:00:35 +0800
+Subject: [PATCH 04/11] Revert "kernel: harden barriers for arm/arm64"
 
-This reverts commit 8a22bbdbe3d8579980af58bf060630fbfb18603b.
+This reverts commit f3c8d379525ee65637d0b8ae15012e48ac2ccdc1.
 
 Signed-off-by: KOWX712 <leecc0503@gmail.com>
 ---
@@ -200,10 +236,10 @@ Signed-off-by: KOWX712 <leecc0503@gmail.com>
  3 files changed, 2 insertions(+), 10 deletions(-)
 
 diff --git a/kernel/core_hook.c b/kernel/core_hook.c
-index 2cc051f7..080b17d8 100644
+index d28c3873..3b07ab39 100644
 --- a/kernel/core_hook.c
 +++ b/kernel/core_hook.c
-@@ -277,7 +277,7 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+@@ -287,7 +287,7 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
  skip_check:
  	// yes this causes delay, but this keeps the delay consistent, which is what we want
  	// with a barrier for safety as the compiler might try to do something smart.
@@ -245,15 +281,15 @@ index b421fc2b..0fd03760 100644
  	if (likely(!ksu_is_allow_uid(current_uid().val)))
  		return false;
 -- 
-2.51.0
+2.51.1.dirty
 
 
-From e819c33c6bfab43e9a2f9d6373f28a8e3d555120 Mon Sep 17 00:00:00 2001
+From 18d1ba54807cffbe57e62ec9807c04a3adf37d76 Mon Sep 17 00:00:00 2001
 From: KOWX712 <leecc0503@gmail.com>
-Date: Wed, 15 Oct 2025 17:49:12 +0800
-Subject: [PATCH 4/9] Revert "kernel: core_hook: harden prctl handler"
+Date: Mon, 20 Oct 2025 10:00:41 +0800
+Subject: [PATCH 05/11] Revert "kernel: core_hook: harden prctl handler"
 
-This reverts commit 3c461792ee32277fb34b08f1d0c50b235111eefb.
+This reverts commit f41a65f4acef03ebb36ef82e523470c9ed2a462d.
 
 Signed-off-by: KOWX712 <leecc0503@gmail.com>
 ---
@@ -261,10 +297,10 @@ Signed-off-by: KOWX712 <leecc0503@gmail.com>
  1 file changed, 9 insertions(+), 21 deletions(-)
 
 diff --git a/kernel/core_hook.c b/kernel/core_hook.c
-index 080b17d8..89475589 100644
+index 3b07ab39..879f4ff9 100644
 --- a/kernel/core_hook.c
 +++ b/kernel/core_hook.c
-@@ -262,32 +262,20 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+@@ -272,32 +272,20 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
  	// if success, we modify the arg5 as result!
  	u32 *result = (u32 *)arg5;
  	u32 reply_ok = KERNEL_SU_OPTION;
@@ -307,16 +343,16 @@ index 080b17d8..89475589 100644
  
  	if (!from_root && !from_manager) {
 -- 
-2.51.0
+2.51.1.dirty
 
 
-From 807a1b2704b8b3bd2ab0ea6cc43d21afc1f396ce Mon Sep 17 00:00:00 2001
+From 3d16a03dcebb86e1f76cd6bf266e1a7a0989a9dd Mon Sep 17 00:00:00 2001
 From: KOWX712 <leecc0503@gmail.com>
-Date: Wed, 15 Oct 2025 17:49:14 +0800
-Subject: [PATCH 5/9] Revert "kernel: sucompat: add kretprobes-hooked
+Date: Mon, 20 Oct 2025 10:00:47 +0800
+Subject: [PATCH 06/11] Revert "kernel: sucompat: add kretprobes-hooked
  getname_flags for sucompat"
 
-This reverts commit 0a711a40727f96014c3a93caf121c437c2fcd278.
+This reverts commit b319cf3738a231ce71a25dd9a83cea602b55eac4.
 
 Signed-off-by: KOWX712 <leecc0503@gmail.com>
 ---
@@ -455,15 +491,15 @@ index 0fd03760..218c6c12 100644
  #endif
  }
 -- 
-2.51.0
+2.51.1.dirty
 
 
-From 2f584144b5bdba54f261d5163a5c713baa83b895 Mon Sep 17 00:00:00 2001
+From 7de6aa54601a38c2c152628026f7f64dd08e893d Mon Sep 17 00:00:00 2001
 From: KOWX712 <leecc0503@gmail.com>
-Date: Wed, 15 Oct 2025 17:49:16 +0800
-Subject: [PATCH 6/9] Revert "kerrnel: overhaul sucompat"
+Date: Mon, 20 Oct 2025 10:00:53 +0800
+Subject: [PATCH 07/11] Revert "kerrnel: overhaul sucompat"
 
-This reverts commit 24a0ac5f07d9fd42158464618a730d640878562a.
+This reverts commit 382310d6df22d4d14b1b89f7e14085812e36a78b.
 
 Signed-off-by: KOWX712 <leecc0503@gmail.com>
 ---
@@ -705,16 +741,16 @@ index 218c6c12..ae57becc 100644
  {
  	if (!current->mm) {
 -- 
-2.51.0
+2.51.1.dirty
 
 
-From d541f7156fd5d5643f6b8d63a7631492f275b09e Mon Sep 17 00:00:00 2001
+From 69aa9be5c9bb829ab146dec0ed3816f7ba809fa1 Mon Sep 17 00:00:00 2001
 From: KOWX712 <leecc0503@gmail.com>
-Date: Wed, 15 Oct 2025 17:49:28 +0800
-Subject: [PATCH 7/9] Revert "kernel: core_hook: only umount when unmountable >
- 0"
+Date: Mon, 20 Oct 2025 10:01:03 +0800
+Subject: [PATCH 08/11] Revert "kernel: core_hook: only umount when unmountable
+ > 0"
 
-This reverts commit b6a2cc6787f5f8c884fbbfa188b350d15a8bf6f3.
+This reverts commit 2ea2081f9c609a9d4162a02cb771bb05460be7fc.
 
 Signed-off-by: KOWX712 <leecc0503@gmail.com>
 ---
@@ -722,7 +758,7 @@ Signed-off-by: KOWX712 <leecc0503@gmail.com>
  1 file changed, 6 deletions(-)
 
 diff --git a/kernel/core_hook.c b/kernel/core_hook.c
-index 89475589..1489e49c 100644
+index 879f4ff9..bd699399 100644
 --- a/kernel/core_hook.c
 +++ b/kernel/core_hook.c
 @@ -47,7 +47,6 @@
@@ -733,7 +769,7 @@ index 89475589..1489e49c 100644
  
  extern int handle_sepolicy(unsigned long arg3, void __user *arg4);
  
-@@ -321,7 +320,6 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+@@ -347,7 +346,6 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
  		// debug
  		// pr_info("cmd_add_try_umount: %s added!\n", buf);
  		list_add(&new_entry->list, &mount_list);
@@ -741,7 +777,7 @@ index 89475589..1489e49c 100644
  
  		if (copy_to_user(result, &reply_ok, sizeof(reply_ok))) {
  			pr_err("prctl reply error, cmd: %lu\n", arg2);
-@@ -616,10 +614,6 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+@@ -676,10 +674,6 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
  		return 0;
  	}
  
@@ -753,16 +789,72 @@ index 89475589..1489e49c 100644
  		return 0;
  	}
 -- 
-2.51.0
+2.51.1.dirty
 
 
-From ec5149a3c7048c577a743d611a8fe00bce880404 Mon Sep 17 00:00:00 2001
+From c760ab8b1a1194c663e57c85492c4dcc734154a3 Mon Sep 17 00:00:00 2001
 From: KOWX712 <leecc0503@gmail.com>
-Date: Wed, 15 Oct 2025 17:51:56 +0800
-Subject: [PATCH 8/9] Revert "kernel: core_hook: expose prctl interface for
+Date: Mon, 20 Oct 2025 10:01:21 +0800
+Subject: [PATCH 09/11] Revert "kernel: core_hook: add wipe umount list cmd"
+
+This reverts commit a8464c19d5fa43937b32e117e8bb26714483f75a.
+
+Signed-off-by: KOWX712 <leecc0503@gmail.com>
+---
+ kernel/core_hook.c | 16 ----------------
+ kernel/ksu.h       |  1 -
+ 2 files changed, 17 deletions(-)
+
+diff --git a/kernel/core_hook.c b/kernel/core_hook.c
+index bd699399..4fa28a4f 100644
+--- a/kernel/core_hook.c
++++ b/kernel/core_hook.c
+@@ -296,22 +296,6 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+ 	pr_info("option: 0x%x, cmd: %ld\n", option, arg2);
+ #endif
+ 
+-	if (arg2 == CMD_WIPE_UMOUNT_LIST) {
+-		struct mount_entry *entry, *tmp;
+-		list_for_each_entry_safe(entry, tmp, &mount_list, list) {
+-			pr_info("wipe_umount_list: removing entry: %s\n", entry->umountable);
+-			list_del(&entry->list);
+-			kfree(entry->umountable);
+-			kfree(entry);
+-        	}
+-        	ksu_unmountable_count = 0;
+-
+-		if (copy_to_user(result, &reply_ok, sizeof(reply_ok))) {
+-			pr_err("prctl reply error, cmd: %lu\n", arg2);
+-		}
+-		return 0;
+-	}
+-
+ 	if (arg2 == CMD_ADD_TRY_UMOUNT) {
+ 		struct mount_entry *new_entry, *entry;
+ 		char buf[384];
+diff --git a/kernel/ksu.h b/kernel/ksu.h
+index b16d4424..d40a8049 100644
+--- a/kernel/ksu.h
++++ b/kernel/ksu.h
+@@ -25,7 +25,6 @@
+ #define CMD_ENABLE_SU 15
+ #define CMD_GET_MANAGER_UID 16
+ 
+-#define CMD_WIPE_UMOUNT_LIST 10000
+ #define CMD_ADD_TRY_UMOUNT 10001
+ #define CMD_NUKE_EXT4_SYSFS 10002
+ #define CMD_TOGGLE_AVC_SPOOF 10003
+-- 
+2.51.1.dirty
+
+
+From 208af17eccca54fe1936dea265991155bb66775d Mon Sep 17 00:00:00 2001
+From: KOWX712 <leecc0503@gmail.com>
+Date: Mon, 20 Oct 2025 10:04:17 +0800
+Subject: [PATCH 10/11] Revert "kernel: core_hook: expose prctl interface for
  umount list (5ec1cff#16)"
 
-This reverts commit  7f2cee89e15a2ba1647a9186e77a908cb45bc714
+This reverts commit a9f990fb679fd310e49c872396fcf60c95127fdd.
 
 Signed-off-by: KOWX712 <leecc0503@gmail.com>
 ---
@@ -771,10 +863,10 @@ Signed-off-by: KOWX712 <leecc0503@gmail.com>
  2 files changed, 42 insertions(+), 58 deletions(-)
 
 diff --git a/kernel/core_hook.c b/kernel/core_hook.c
-index 1489e49c..76399129 100644
+index 4fa28a4f..88847587 100644
 --- a/kernel/core_hook.c
 +++ b/kernel/core_hook.c
-@@ -249,12 +249,6 @@ static void nuke_ext4_sysfs(const char *custompath) {
+@@ -259,12 +259,6 @@ static void nuke_ext4_sysfs(const char *custompath) {
  	path_put(&path);
  }
  
@@ -787,7 +879,7 @@ index 1489e49c..76399129 100644
  int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
  		     unsigned long arg4, unsigned long arg5)
  {
-@@ -286,47 +280,6 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+@@ -296,47 +290,6 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
  	pr_info("option: 0x%x, cmd: %ld\n", option, arg2);
  #endif
  
@@ -835,7 +927,7 @@ index 1489e49c..76399129 100644
  	if (arg2 == CMD_NUKE_EXT4_SYSFS) {
  		char buf[384];
  
-@@ -582,13 +535,34 @@ static bool is_non_appuid(kuid_t uid)
+@@ -626,13 +579,34 @@ static bool is_non_appuid(kuid_t uid)
  	return appid < FIRST_APPLICATION_UID;
  }
  
@@ -873,7 +965,7 @@ index 1489e49c..76399129 100644
  {
  	struct path path;
  	int err = kern_path(mnt, 0, &path);
-@@ -602,13 +576,17 @@ static void try_umount(const char *mnt, int flags)
+@@ -646,13 +620,17 @@ static void try_umount(const char *mnt, int flags)
  		return;
  	}
  
@@ -894,7 +986,7 @@ index 1489e49c..76399129 100644
  	// this hook is used for umounting overlayfs for some uid, if there isn't any module mounted, just ignore it!
  	if (!ksu_module_mounted) {
  		return 0;
-@@ -671,10 +649,17 @@ do_umount:
+@@ -715,10 +693,17 @@ do_umount:
  		current->pid);
  #endif
  
@@ -917,7 +1009,7 @@ index 1489e49c..76399129 100644
  	return 0;
  }
 diff --git a/kernel/ksu.h b/kernel/ksu.h
-index ef2bafb9..a2ffc41e 100644
+index d40a8049..2a694618 100644
 --- a/kernel/ksu.h
 +++ b/kernel/ksu.h
 @@ -25,7 +25,6 @@
@@ -926,19 +1018,19 @@ index ef2bafb9..a2ffc41e 100644
  
 -#define CMD_ADD_TRY_UMOUNT 10001
  #define CMD_NUKE_EXT4_SYSFS 10002
- 
- #define EVENT_POST_FS_DATA 1
+ #define CMD_TOGGLE_AVC_SPOOF 10003
+ #define CMD_IS_AVC_SPOOF_ENABLED 10004
 -- 
-2.51.0
+2.51.1.dirty
 
 
-From f91f14bfa90d76524d57a3d0b305ab5a4ad68ac8 Mon Sep 17 00:00:00 2001
+From f053f171b6648949368a1ca973b211e8aac01c30 Mon Sep 17 00:00:00 2001
 From: KOWX712 <leecc0503@gmail.com>
-Date: Thu, 16 Oct 2025 06:28:39 +0800
-Subject: [PATCH 9/9] Revert "Unmount isolated process which forks from zygote
- unconditionally (#2776)"
+Date: Mon, 20 Oct 2025 10:04:38 +0800
+Subject: [PATCH 11/11] Revert "Unmount isolated process which forks from
+ zygote (tiann#2776)"
 
-This reverts commit cfb687308932304d171413d6219eb00d12b47984.
+This reverts commit c233f23677e8058681d08c30f961e12a78ad030d.
 
 Signed-off-by: KOWX712 <leecc0503@gmail.com>
 ---
@@ -946,10 +1038,10 @@ Signed-off-by: KOWX712 <leecc0503@gmail.com>
  1 file changed, 9 insertions(+), 20 deletions(-)
 
 diff --git a/kernel/core_hook.c b/kernel/core_hook.c
-index 76399129..db72d214 100644
+index 88847587..40b75f3c 100644
 --- a/kernel/core_hook.c
 +++ b/kernel/core_hook.c
-@@ -63,7 +63,7 @@ static inline bool is_allow_su()
+@@ -73,7 +73,7 @@ static inline bool is_allow_su()
  	return ksu_is_allow_uid(current_uid().val);
  }
  
@@ -958,7 +1050,7 @@ index 76399129..db72d214 100644
  {
  #define LAST_APPLICATION_UID 19999
  	uid_t appid = uid % 100000;
-@@ -526,13 +526,14 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+@@ -570,13 +570,14 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
  	return 0;
  }
  
@@ -975,7 +1067,7 @@ index 76399129..db72d214 100644
  }
  
  static bool should_umount(struct path *path)
-@@ -604,25 +605,13 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+@@ -648,25 +649,13 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
  		return 0;
  	}
  
@@ -1004,7 +1096,7 @@ index 76399129..db72d214 100644
  		return 0;
  	}
  
-@@ -634,11 +623,11 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+@@ -678,11 +667,11 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
  #endif
  	}
  
@@ -1019,5 +1111,5 @@ index 76399129..db72d214 100644
  			current->pid);
  		return 0;
 -- 
-2.51.0
+2.51.1.dirty
 

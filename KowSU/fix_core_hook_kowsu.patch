@@ -1,0 +1,29 @@
+From a8d27316c894751ce2fdba0ebbe1613d521e8aad Mon Sep 17 00:00:00 2001
+From: KOWX712 <leecc0503@gmail.com>
+Date: Fri, 24 Oct 2025 11:37:54 +0800
+Subject: [PATCH] fix_core_hook_kowsu
+
+Signed-off-by: KOWX712 <leecc0503@gmail.com>
+---
+ kernel/core_hook.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/kernel/core_hook.c b/kernel/core_hook.c
+index 8795b397..a4fe9066 100644
+--- a/kernel/core_hook.c
++++ b/kernel/core_hook.c
+@@ -479,7 +479,10 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+ 			if (!boot_complete_lock) {
+ 				boot_complete_lock = true;
+ 				pr_info("boot_complete triggered\n");
+-				avc_spoof_init(); 
++				avc_spoof_init();
++#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
++				susfs_is_boot_completed_triggered = true;
++#endif
+ 			}
+ 			break;
+ 		}
+-- 
+2.51.1
+

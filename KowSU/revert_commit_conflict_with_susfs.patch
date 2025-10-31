@@ -1,4 +1,4 @@
-From 69337cda96591ade4235607abbea689a90af837c Mon Sep 17 00:00:00 2001
+From 587f48cc3c8767dd43c8cd69b0ac6aa1eda5d7f3 Mon Sep 17 00:00:00 2001
 From: KOWX712 <leecc0503@gmail.com>
 Date: Mon, 20 Oct 2025 09:54:21 +0800
 Subject: [PATCH 01/11] Revert "ksud: add wipe umount list cmd"
@@ -40,10 +40,10 @@ index 4c3e9c17..aba77698 100644
  	    match CString::new(path.to_string_lossy().as_ref()) {  
  		std::result::Result::Ok(c_path) => {  
 -- 
-2.51.1
+2.51.2
 
 
-From 2b70561050aebfa2de2dd36ea141fb33eb5e4587 Mon Sep 17 00:00:00 2001
+From 85b39b4838443d2ab21dbab587b0cc4d40d534a9 Mon Sep 17 00:00:00 2001
 From: KOWX712 <leecc0503@gmail.com>
 Date: Mon, 20 Oct 2025 09:57:15 +0800
 Subject: [PATCH 02/11] Revert "ksud: add cmd for add-try-umount (5ec1cff#16)"
@@ -94,10 +94,10 @@ index aba77698..934148d9 100644
  	    match CString::new(path.to_string_lossy().as_ref()) {  
  		std::result::Result::Ok(c_path) => {  
 -- 
-2.51.1
+2.51.2
 
 
-From 0bfb155f52670cb309ed00d661f8184b1f19883a Mon Sep 17 00:00:00 2001
+From 939ca84d1d18f042fcbd4c783fbc2e43354bf7f1 Mon Sep 17 00:00:00 2001
 From: KOWX712 <leecc0503@gmail.com>
 Date: Mon, 20 Oct 2025 10:00:17 +0800
 Subject: [PATCH 03/11] Revert "kernel: core_hook: add support for KernelNoSU
@@ -218,10 +218,10 @@ index d566d14e..d28c3873 100644
  		if (copy_to_user(arg3, &ksu_avc_spoof_enabled, sizeof(ksu_avc_spoof_enabled))) {
  			pr_err("copy avc spoof failed\n");
 -- 
-2.51.1
+2.51.2
 
 
-From ef685de9928b155719ecad2afeaea4b6ab5a1c93 Mon Sep 17 00:00:00 2001
+From cc4097d03f49d54b137b9e2c1bb7210fb284e3fb Mon Sep 17 00:00:00 2001
 From: KOWX712 <leecc0503@gmail.com>
 Date: Mon, 20 Oct 2025 10:00:35 +0800
 Subject: [PATCH 04/11] Revert "kernel: harden barriers for arm/arm64"
@@ -268,7 +268,7 @@ index 249413b9..c78948d1 100644
  					  const void __user *unsafe_addr,
  					  long count);
 diff --git a/kernel/sucompat.c b/kernel/sucompat.c
-index 87e08561..97391c37 100644
+index cb42dd39..9e04d802 100644
 --- a/kernel/sucompat.c
 +++ b/kernel/sucompat.c
 @@ -49,7 +49,7 @@ static char __user *ksud_user_path(void)
@@ -281,15 +281,15 @@ index 87e08561..97391c37 100644
  	if (likely(!ksu_is_allow_uid(current_uid().val)))
  		return false;
 -- 
-2.51.1
+2.51.2
 
 
-From bdd953e8f6a8fd2c04ae78d352481750b454deb2 Mon Sep 17 00:00:00 2001
+From 912cc6eb5a1bde1aa79bb3abb9ca2bea779f35d5 Mon Sep 17 00:00:00 2001
 From: KOWX712 <leecc0503@gmail.com>
-Date: Fri, 24 Oct 2025 20:28:13 +0800
+Date: Mon, 20 Oct 2025 10:00:41 +0800
 Subject: [PATCH 05/11] Revert "kernel: core_hook: harden prctl handler"
 
-This reverts commit 597a8a166662b7231f3b7ea5670dcbe28d115b44.
+This reverts commit f41a65f4acef03ebb36ef82e523470c9ed2a462d.
 
 Signed-off-by: KOWX712 <leecc0503@gmail.com>
 ---
@@ -343,24 +343,24 @@ index 3b07ab39..879f4ff9 100644
  
  	if (!from_root && !from_manager) {
 -- 
-2.51.1
+2.51.2
 
 
-From a2181507c9e6efb24f59a15af5c82712f29e97c1 Mon Sep 17 00:00:00 2001
+From f94bcc91706fa5f32dcbea3f9d8017c97bbc9c03 Mon Sep 17 00:00:00 2001
 From: KOWX712 <leecc0503@gmail.com>
-Date: Fri, 24 Oct 2025 20:25:05 +0800
+Date: Fri, 31 Oct 2025 14:57:45 +0800
 Subject: [PATCH 06/11] Revert "kernel: sucompat: add kretprobes-hooked
  getname_flags for sucompat"
 
-This reverts commit 4ccc07ded6cb4d90fc300fc0dd6baaa6917b564a.
+This reverts commit 8bb645dbe28cab6c21a818c6ba8446bb2f6d01a6.
 
 Signed-off-by: KOWX712 <leecc0503@gmail.com>
 ---
- kernel/sucompat.c | 90 +++++++++++++++++------------------------------
- 1 file changed, 33 insertions(+), 57 deletions(-)
+ kernel/sucompat.c | 88 +++++++++--------------------------------------
+ 1 file changed, 17 insertions(+), 71 deletions(-)
 
 diff --git a/kernel/sucompat.c b/kernel/sucompat.c
-index 97391c37..ccfb910d 100644
+index 9e04d802..ccfb910d 100644
 --- a/kernel/sucompat.c
 +++ b/kernel/sucompat.c
 @@ -162,6 +162,12 @@ int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
@@ -385,12 +385,30 @@ index 97391c37..ccfb910d 100644
  static int faccessat_handler_pre(struct kprobe *p, struct pt_regs *regs)
  {
  	struct pt_regs *real_regs = PT_REAL_REGS(regs);
-@@ -220,86 +226,56 @@ static int execve_handler_pre(struct kprobe *p, struct pt_regs *regs)
+@@ -220,9 +226,8 @@ static int execve_handler_pre(struct kprobe *p, struct pt_regs *regs)
  	return ksu_handle_execve_sucompat(AT_FDCWD, filename_user, NULL, NULL,
  					  NULL);
  }
 -#endif
--
+ 
+-static __maybe_unused struct kprobe *init_kprobe(const char *name,
++static struct kprobe *init_kprobe(const char *name,
+ 				  kprobe_pre_handler_t handler)
+ {
+ 	struct kprobe *kp = kzalloc(sizeof(struct kprobe), GFP_KERNEL);
+@@ -241,7 +246,7 @@ static __maybe_unused struct kprobe *init_kprobe(const char *name,
+ 	return kp;
+ }
+ 
+-static __maybe_unused void destroy_kprobe(struct kprobe **kp_ptr)
++static void destroy_kprobe(struct kprobe **kp_ptr)
+ {
+ 	struct kprobe *kp = *kp_ptr;
+ 	if (!kp)
+@@ -252,84 +257,25 @@ static __maybe_unused void destroy_kprobe(struct kprobe **kp_ptr)
+ 	*kp_ptr = NULL;
+ }
+ 
 -static DEFINE_MUTEX(ksu_rp_sucompat_lock);
 -static struct kretprobe *getname_rp;
 -
@@ -405,11 +423,9 @@ index 97391c37..ccfb910d 100644
 -	ksu_getname_flags_kernel((char **)&ret->name, *flags);
 -	return 0;
 -}
- 
+-
 -static int getname_flags_entry_handler(struct kretprobe_instance *ri, struct pt_regs *regs)
-+static struct kprobe *init_kprobe(const char *name,
-+				  kprobe_pre_handler_t handler)
- {
+-{
 -	int *flags = (int *)ri->data; // as per sample, we store everything on ri->data ?
 -	*flags = (int)PT_REGS_PARM2(regs); // keep a copy of arg2
 -
@@ -424,12 +440,8 @@ index 97391c37..ccfb910d 100644
 -{
 -	struct kretprobe *rp = kzalloc(sizeof(struct kretprobe), GFP_KERNEL);
 -	if (!rp)
-+	struct kprobe *kp = kzalloc(sizeof(struct kprobe), GFP_KERNEL);
-+	if (!kp)
- 		return NULL;
-+	kp->symbol_name = name;
-+	kp->pre_handler = handler;
- 
+-		return NULL;
+-
 -	rp->kp.symbol_name = symbol;
 -	rp->entry_handler = entry_handler;
 -	rp->handler = ret_handler;
@@ -439,38 +451,26 @@ index 97391c37..ccfb910d 100644
 -	mutex_lock(&ksu_rp_sucompat_lock);
 -	int ret = register_kretprobe(rp);
 -	mutex_unlock(&ksu_rp_sucompat_lock);
-+	int ret = register_kprobe(kp);
-+	pr_info("sucompat: register_%s kprobe: %d\n", name, ret);
- 	if (ret) {
+-	if (ret) {
 -		kfree(rp);
-+		kfree(kp);
- 		return NULL;
- 	}
+-		return NULL;
+-	}
 -	pr_info("rp_sucompat: planted kretprobe at %s: %p\n", rp->kp.symbol_name, rp->kp.addr);
- 
+-
 -	return rp;
-+	return kp;
- }
- 
+-}
+-
 -static void destroy_kretprobe(struct kretprobe **rp_ptr)
-+static void destroy_kprobe(struct kprobe **kp_ptr)
- {
+-{
 -	if (!rp_ptr || !*rp_ptr)
-+	struct kprobe *kp = *kp_ptr;
-+	if (!kp)
- 		return;
+-		return;
 -
 -	mutex_lock(&ksu_rp_sucompat_lock);
 -	unregister_kretprobe(*rp_ptr);
 -	mutex_unlock(&ksu_rp_sucompat_lock);
 -	kfree(*rp_ptr);
 -	*rp_ptr = NULL;
-+	unregister_kprobe(kp);
-+	synchronize_rcu();
-+	kfree(kp);
-+	*kp_ptr = NULL;
- }
-+
+-}
 +static struct kprobe *su_kps[3];
  #endif
  
@@ -499,12 +499,12 @@ index 97391c37..ccfb910d 100644
  #endif
  }
 -- 
-2.51.1
+2.51.2
 
 
-From 565d17efe0867a2c01b630e00f01e09596be5175 Mon Sep 17 00:00:00 2001
+From 629f27c8ac385105044060ba227edadc9e13a0aa Mon Sep 17 00:00:00 2001
 From: KOWX712 <leecc0503@gmail.com>
-Date: Fri, 24 Oct 2025 20:25:41 +0800
+Date: Fri, 31 Oct 2025 14:59:01 +0800
 Subject: [PATCH 07/11] Revert "kerrnel: overhaul sucompat"
 
 This reverts commit f8efa28d6f48a9fc2fd1d61505ecf2396b4b9112.
@@ -746,16 +746,16 @@ index ccfb910d..4ce1bab3 100644
  
  #ifdef CONFIG_KPROBES
 -- 
-2.51.1
+2.51.2
 
 
-From d8cc60f3e394ff6a67887a536c91ac77685b10fb Mon Sep 17 00:00:00 2001
+From ebe7b8be532f59e9bc777d97f70257828e6b6836 Mon Sep 17 00:00:00 2001
 From: KOWX712 <leecc0503@gmail.com>
-Date: Mon, 20 Oct 2025 10:01:03 +0800
+Date: Fri, 31 Oct 2025 14:59:08 +0800
 Subject: [PATCH 08/11] Revert "kernel: core_hook: only umount when unmountable
  > 0"
 
-This reverts commit 2ea2081f9c609a9d4162a02cb771bb05460be7fc.
+This reverts commit d9ce7ab097e4868bf03a0e8fcddab2a1857bbb0e.
 
 Signed-off-by: KOWX712 <leecc0503@gmail.com>
 ---
@@ -794,10 +794,10 @@ index 879f4ff9..bd699399 100644
  		return 0;
  	}
 -- 
-2.51.1
+2.51.2
 
 
-From 699298dc8b0d766fe73996e8aea929ce6df28f51 Mon Sep 17 00:00:00 2001
+From 44224ec6b137242ca52efa8d93b30cb29a620914 Mon Sep 17 00:00:00 2001
 From: KOWX712 <leecc0503@gmail.com>
 Date: Mon, 20 Oct 2025 10:01:21 +0800
 Subject: [PATCH 09/11] Revert "kernel: core_hook: add wipe umount list cmd"
@@ -850,10 +850,10 @@ index b16d4424..d40a8049 100644
  #define CMD_NUKE_EXT4_SYSFS 10002
  #define CMD_TOGGLE_AVC_SPOOF 10003
 -- 
-2.51.1
+2.51.2
 
 
-From 19f43667c0b91652d9536c0c1f5a165bbbd74944 Mon Sep 17 00:00:00 2001
+From 95e5ffdeff4a360f358c1660f800f916e6214061 Mon Sep 17 00:00:00 2001
 From: KOWX712 <leecc0503@gmail.com>
 Date: Mon, 20 Oct 2025 10:04:17 +0800
 Subject: [PATCH 10/11] Revert "kernel: core_hook: expose prctl interface for
@@ -1026,10 +1026,10 @@ index d40a8049..2a694618 100644
  #define CMD_TOGGLE_AVC_SPOOF 10003
  #define CMD_IS_AVC_SPOOF_ENABLED 10004
 -- 
-2.51.1
+2.51.2
 
 
-From aa60da85c77ca22cc7d619b8853629af2e6e1789 Mon Sep 17 00:00:00 2001
+From f5eeccff88f7ffc615c7c53479cfbe26b333d7de Mon Sep 17 00:00:00 2001
 From: KOWX712 <leecc0503@gmail.com>
 Date: Mon, 20 Oct 2025 10:04:38 +0800
 Subject: [PATCH 11/11] Revert "Unmount isolated process which forks from
@@ -1116,5 +1116,5 @@ index 88847587..40b75f3c 100644
  			current->pid);
  		return 0;
 -- 
-2.51.1
+2.51.2
 

@@ -1,9 +1,9 @@
 diff --git a/kernel/supercall/supercall.c b/kernel/supercall/supercall.c
-index eab7fdb08..9e2d6a38f 100644
+index 59ec582f5..efca3ed8d 100644
 --- a/kernel/supercall/supercall.c
 +++ b/kernel/supercall/supercall.c
-@@ -90,6 +90,8 @@ static inline int ksu_handle_fd_request(void __user *arg4)
- 	return 0;
+@@ -77,6 +77,8 @@ bool ksu_is_su_session_fd(const struct file *filp)
+ 	return context && (context->permissions & KSU_DRIVER_PERMISSION_SU_SESSION);
  }
  
 +#define KSU_GET_LKM_VARIANT 20000
@@ -11,8 +11,8 @@ index eab7fdb08..9e2d6a38f 100644
  // downstream: make sure to pass arg as reference, this can allow us to extend things.
  int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd, void __user **arg)
  {
-@@ -112,6 +114,12 @@ int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd, void __user
- 		return ksu_handle_fd_request(arg4);
+@@ -106,6 +108,12 @@ int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd, void __user
+ 		return 0;
  	}
  
 +	if (magic2 == KSU_GET_LKM_VARIANT && is_manager()) {
@@ -21,6 +21,6 @@ index eab7fdb08..9e2d6a38f 100644
 +		return 0;
 +	}
 +
- 	// only root is allowed for these commands
- 	if (current_uid().val != 0)
- 		return 0;
+ 	toolkit_handle_sys_reboot(magic1, magic2, cmd, arg);
+ 	return 0;
+ }
